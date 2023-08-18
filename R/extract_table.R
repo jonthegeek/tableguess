@@ -1,71 +1,99 @@
-extract_table <- function(tbl_vctr = character()) {
-  # TODO: Eventually make that input a class so I know the table has already
-  # been found and split into separate lines.
-  data_map <- stringr::str_locate_all(
-    tbl_vctr,
-    "[^[:space:]]+([[:space:]]{0,2}[^[:space:]]+)*(?=[:space:]|$)"
-  ) |>
-    purrr::map(
-      as.data.frame
-    ) |>
-    purrr::list_rbind() |>
-    dplyr::distinct()
+extract_table <- function(tbl_vctr = character(),
+                          merge_empty = TRUE,
+                          orientation = c("horizontal", "vertical")) {
+  boundaries <- .locate_boundaries(tbl_vctr)
+  mtrx <- .extract_substrings_at_boundaries(tbl_vctr, boundaries)
 
-  map_vctr_start <- min(c(data_map$start, 1L))
-  # Include the spot past the end so it merges if there spaces at the end of
-  # everything.
-  map_vctr_end <- max(data_map$end) + 1L
-  # TODO: Validate those.
-  map_vctr <- map_vctr_start:map_vctr_end
-  empty_locations <- purrr::reduce2(
-    data_map$start,
-    data_map$end,
-    \(map_vctr, start, end) {
-      # TODO: Validate that they're all valid.
-      this_vctr <- start:end
-      setdiff(map_vctr, this_vctr)
-    },
-    .init = map_vctr
-  )
-  lagged <- dplyr::lag(empty_locations)
-  consecutive <- !is.na(lagged) & empty_locations == lagged + 1L
-  empty_locations <- empty_locations[!consecutive]
-  # Select from empty_locations[[1]] to empty_locations[[2-1]], etc.
-  cols <- purrr::map(
-    seq_len(length(empty_locations) - 1),
-    \(i) {
-      stringr::str_sub(
-        tbl_vctr,
-        start = empty_locations[[i]],
-        end = empty_locations[[i + 1]] - 1
-      ) |>
-        stringr::str_trim()
-    }
-  )
-
-  tbl_mtrx <- matrix(
-    unlist(cols),
-    nrow = length(tbl_vctr),
-    ncol = length(cols)
-  )
-  colnames(tbl_mtrx) <- tbl_mtrx[1, ]
-  tbl_mtrx <- tbl_mtrx[-1, ]
-  empty <- tbl_mtrx == ""
-
-  # Row-by-row, if any are empty, merge that row to the row above.
-  for (i in seq_len(nrow(tbl_mtrx) - 1) + 1L) {
-    if (any(empty[i, ])) {
-      tbl_mtrx[i - 1, ] <- paste(tbl_mtrx[i - 1, ], tbl_mtrx[i, ]) |>
-        stringr::str_trim()
-      tbl_mtrx[i, ] <- ""
-    }
+  orientation <- match.arg(orientation)
+  if (orientation == "vertical") {
+    mtrx <- t(mtrx)
   }
 
-  better_mtrx <- matrix(
-    tbl_mtrx[tbl_mtrx != ""],
-    ncol = ncol(tbl_mtrx),
-    dimnames = list(NULL, colnames(tbl_mtrx))
+  if (merge_empty) {
+    mtrx <- .merge_empty(mtrx)
+  }
+
+  mtrx <- .row_to_names(mtrx)
+
+  return(as.data.frame(mtrx))
+}
+
+.locate_boundaries <- function(tbl_vctr) {
+  non_spaces <- unlist(stringi::stri_locate_all_regex(tbl_vctr, "\\S"))
+  nchar(tbl_vctr)
+
+  # Include the spot past the end so it merges if there spaces at the end of
+  # everything.
+  empty_locations <- setdiff(seq_len(max(non_spaces) + 1L), non_spaces)
+
+  consecutive <- c(
+    FALSE, # First location is never consecutive
+    empty_locations[-1] == (empty_locations[-length(empty_locations)] + 1L)
+  )
+  return(empty_locations[!consecutive])
+}
+
+.extract_substrings_at_boundaries <- function(tbl_vctr, boundaries) {
+  n_pieces <- length(boundaries) - 1L
+  sub_map <- matrix(
+    c(
+      boundaries[-length(boundaries)],
+      boundaries[-1] - 1L
+    ),
+    nrow = n_pieces,
+    dimnames = list(NULL, c("start", "end"))
   )
 
-  return(as.data.frame(better_mtrx))
+  cols <- stringi::stri_sub_all(tbl_vctr, sub_map)
+
+  return(
+    matrix(
+      stringi::stri_trim_both(unlist(cols)),
+      nrow = length(tbl_vctr),
+      ncol = n_pieces,
+      byrow = TRUE
+    )
+  )
+}
+
+.merge_empty <- function(tbl_matrix) {
+  tbl_matrix <- .merge_empty_rows(tbl_matrix)
+  tbl_matrix <- .merge_empty_cols(tbl_matrix)
+  # while (any(tbl_matrix == "")) {
+  #   tbl_matrix <- t(tbl_matrix)
+  #   tbl_matrix <- .merge_empty_rows(tbl_matrix)
+  # }
+  return(tbl_matrix)
+}
+
+.merge_empty_rows <- function(tbl_matrix) {
+  rows_to_check <- seq_len(nrow(tbl_matrix))[-1]
+  for (i in rev(rows_to_check)) {
+    if (any(tbl_matrix[i, ] == "")) {
+      tbl_matrix[i - 1L, ] <- stringi::stri_trim_both(
+        paste(tbl_matrix[i - 1, ], tbl_matrix[i, ])
+      )
+      tbl_matrix <- tbl_matrix[-i, ]
+    }
+  }
+  return(tbl_matrix)
+}
+.merge_empty_cols <- function(tbl_matrix) {
+  tbl_matrix <- t(tbl_matrix)
+  rows_to_check <- seq_len(nrow(tbl_matrix))[-1]
+  for (i in rev(rows_to_check)) {
+    if (any(tbl_matrix[i, ] == "")) {
+      tbl_matrix[i - 1L, ] <- stringi::stri_trim_both(
+        paste(tbl_matrix[i - 1, ], tbl_matrix[i, ])
+      )
+      tbl_matrix <- tbl_matrix[-i, ]
+    }
+  }
+  return(t(tbl_matrix))
+}
+
+.row_to_names <- function(mtrx, names_from = 1L) {
+  colnames(mtrx) <- mtrx[names_from, ]
+  mtrx <- mtrx[-names_from, , drop = FALSE]
+  return(mtrx)
 }
