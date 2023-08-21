@@ -6,7 +6,7 @@
 \alias{tableguess-package}
 \title{tableguess: Find Tables in Plain Text}
 \description{
-The goal of tableguess is to...
+The goal of tableguess is to automatically extract table-like objects out of plain text files.
 }
 \seealso{
 Useful links:

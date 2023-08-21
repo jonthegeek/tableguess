@@ -1,3 +1,17 @@
+#' Extract a table from a character vector
+#'
+#' This is likely not the final form and/or name of this function. Right now it
+#' requires a character vector that has already been split by newlines, and some
+#' guidance on what to do. It does well once you tell it where to look, though.
+#'
+#' @param tbl_vctr A character vector with one line of text per value.
+#' @param merge_empty Whether to merge empty cells together (by "row" then by
+#'   "column").
+#' @param orientation Whether the data is laid out horizontally like a tidy
+#'   table (variables = column names), or vertically (more like a list).
+#'
+#' @return A data.frame with the extracted table.
+#' @export
 extract_table <- function(tbl_vctr = character(),
                           merge_empty = TRUE,
                           orientation = c("horizontal", "vertical")) {
