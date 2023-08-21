@@ -14,7 +14,10 @@ coverage](https://codecov.io/gh/jonthegeek/tableguess/branch/main/graph/badge.sv
 [![R-CMD-check](https://github.com/jonthegeek/tableguess/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/jonthegeek/tableguess/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-The goal of tableguess is to…
+The goal of tableguess is to automatically extract table-like objects
+out of plain text files. This package is currently far from complete,
+but the first function vaguely works, so I’m going to use it and see
+what breaks.
 
 ## Installation
 
@@ -28,7 +31,7 @@ remotes::install_github("jonthegeek/tableguess")
 
 ## Usage
 
-Add usage information and examples here.
+*(Add usage information and examples here.)*
 
 ## Code of Conduct
 
