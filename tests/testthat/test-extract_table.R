@@ -46,3 +46,18 @@ test_that("Not confused by weird breaks", {
     expected
   )
 })
+
+test_that("Works without leading spaces", {
+  given <- readLines(
+    test_path("examples", "table2c.txt")
+  )
+  expected <- data.frame(
+    Year = "2022",
+    Info = "This information is table like but it isn't really a table nor is it delimited per se.",
+    Name = "Jon Harmon"
+  )
+  expect_identical(
+    extract_table(given, orientation = "vertical"),
+    expected
+  )
+})

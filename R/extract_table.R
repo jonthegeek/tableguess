@@ -34,11 +34,13 @@ extract_table <- function(tbl_vctr = character(),
 
 .locate_boundaries <- function(tbl_vctr) {
   non_spaces <- unlist(stringi::stri_locate_all_regex(tbl_vctr, "\\S"))
-  nchar(tbl_vctr)
 
   # Include the spot past the end so it merges if there spaces at the end of
   # everything.
   empty_locations <- setdiff(seq_len(max(non_spaces) + 1L), non_spaces)
+
+  # Even if 1 is never empty, it needs to be included as the starting location.
+  empty_locations <- union(1L, empty_locations)
 
   consecutive <- c(
     FALSE, # First location is never consecutive
